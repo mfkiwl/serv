@@ -5,7 +5,6 @@ module serv_bufreg
    input wire 	      i_cnt1,
    input wire 	      i_en,
    input wire 	      i_init,
-   input wire 	      i_loop,
    input wire 	      i_rs1,
    input wire 	      i_rs1_en,
    input wire 	      i_imm,
@@ -24,11 +23,11 @@ module serv_bufreg
    assign {c,q} = {1'b0,(i_rs1 & i_rs1_en)} + {1'b0,(i_imm & i_imm_en & !clr_lsb)} + c_r;
 
    always @(posedge i_clk) begin
-      //Clear carry when not in INIT state
-      c_r <= c & i_init;
+      //Make sure carry is cleared before loading new data
+      c_r <= c & i_en;
 
       if (i_en)
-	data <= {(i_loop & !i_init) ? o_q : q, data[31:1]};
+	data <= {i_init ? q : o_q, data[31:1]};
 
       if (i_cnt0 & i_init)
 	o_lsb[0] <= q;
