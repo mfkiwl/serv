@@ -4,24 +4,16 @@
    contain the root `toctree` directive.
 
 SERV user manual
-================================
+================
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
 Modules
 -------
 
-SERV is a bit-serial CPU which means that the internal datapath is one bit wide. :ref:`dataflow` show the internal dataflow. For each instructions, data is read from the register file or the immediate fields of the instruction word and the result of the operation is stored back into the register file. Reading and writing memory is handled through the memory interface module.
+SERV is a bit-serial CPU which means that the internal datapath is one bit wide. :ref:`dataflow` show the internal dataflow. For each instruction, data is read from the register file or the immediate fields of the instruction word and the result of the operation is stored back into the register file. Reading and writing memory is handled through the memory interface module.
 
 .. _dataflow:
 
@@ -59,7 +51,7 @@ serv_bufreg
 
 .. image:: serv_bufreg.png
 
-For two-stage operations, serv_bufreg holds data between stages. This data can be the effective address for branches or load/stores or data to be shifted for shift ops. It has a serial output for streaming out results during stage two and a parallel output that forms the dbus address. serv_bufreg also keeps track of the two lsb when calculating adresses. This is used to check for alignment errors. In order to support these different modes, the input to the shift register can come from rs1, the immediate (imm), rs1+imm or looped back from the shift register output. The latter is used for shift operations. For some operations, the LSB of the immediate is cleared before written to the shift register. bufreg also latches and exposes the two LSB bits of the data written to the shift register. These are used to check data/address alignment issues early.
+For two-stage operations, serv_bufreg holds data between stages. This data can be the effective address for branches or load/stores or data to be shifted for shift ops. It has a serial output for streaming out results during stage two and a parallel output that forms the dbus address. serv_bufreg also keeps track of the two lsb when calculating adresses. This is used to check for alignment errors. In order to support these different modes, the input to the shift register can come from rs1, the immediate (imm), rs1+imm or looped back from the shift register output. The latter is used for shift operations. For some operations, the LSB of the immediate is cleared before written to the shift register. The two LSB of the shift register are special. When the shift register is loaded, these two get written first before the rest of the register is filled up. This allows the memory interface to check data/address alignment early.
 
 .. image:: serv_bufreg_int.png
 
@@ -95,12 +87,55 @@ serv_decode is responsible for decoding the operation word coming from ibus into
 
 .. image:: serv_decode_int.png
 
+serv_immdec
+^^^^^^^^^^^
+
+.. image:: serv_immdec.png
+
+The main responsibility of serv_immdec is to stitch together the pieces of immediates from the instruction word and push it out in the correct order. When a new instruction arrives, the relevant parts are placed into a number of shift registers, and the connections between the registers are setup differently depending on the type of operation.
+
+serv_immdec also extracts the register addresses from the operation word.
+
+.. image:: serv_immdec_int.png
+
 serv_mem_if
 ^^^^^^^^^^^
 
 .. image:: serv_mem_if.png
 
 serv_mem_if prepares the data to be sent out on the dbus during store operations and serializes the incoming data during loads
+
+The memory interface is centered around four byte-wide shift registers connected in series. During store operations, the `dat_en` signal is asserted long enough to shift in the data from rs2 to the right place in the shift registers and the parallel output of the shift registers is then presented to the data bus as a 32-bit word together with a byte mask. The `Data bus byte mask`_ table summarizes the logic for when the individual byte select signals are asserted depending on the two LSB of the data address together with the size (byte, halfword, word) of the write operation.
+
+During load operations, the data from the bus is latched into the shift registers. `dat_en` is again asserted to shift out data from the registers. `i_lsb` decides from which byte stage of the shift register to tap the data, depending on the alignment of the received data. The `dat_valid` signal makes sure to only present valid data to `o_rd` and otherwise fill in with zeros or sign extension.
+
+When SERV is built with `WITH_CSR`, there is also logic to detect misaligned accesses which asserts the o_misalign flag to the core.
+
+.. image:: serv_mem_if_int.png
+
+.. _`Data bus byte mask`:
+
++-------+---+---------------------+-----------------+----------------------+-------------+
+|op type|lsb|                    3|                2|                     1|            0|
++=======+===+=====================+=================+======================+=============+
+|sb     | 00|                    0|                0|                     0|            1|
++-------+---+---------------------+-----------------+----------------------+-------------+
+|sb     | 01|                    0|                0|                     1|            0|
++-------+---+---------------------+-----------------+----------------------+-------------+
+|sb     | 10|                    0|                1|                     0|            0|
++-------+---+---------------------+-----------------+----------------------+-------------+
+|sb     | 11|                    1|                0|                     0|            0|
++-------+---+---------------------+-----------------+----------------------+-------------+
+|sh     | 00|                    0|                0|                     1|            1|
++-------+---+---------------------+-----------------+----------------------+-------------+
+|sh     | 10|                    1|                1|                     0|            0|
++-------+---+---------------------+-----------------+----------------------+-------------+
+|sw     | 00|                    1|                1|                     1|            1|
++-------+---+---------------------+-----------------+----------------------+-------------+
+|Logic      |`(i_lsb == 11) |`    |`(i_lsb == 10 |)`|`(i_lsb == 01) |`     |`i_lsb == 0` |
+|expression |`i_word |`           |`i_word`         |`i_word |`            |             |
+|	    |`(i_half & i_lsb[1])`|                 |`(i_half & !i_lsb[1])`|             |
++-------+---+---------------------+-----------------+----------------------+-------------+
 
 serv_rf_if
 ^^^^^^^^^^
