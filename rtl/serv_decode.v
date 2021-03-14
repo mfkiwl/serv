@@ -6,6 +6,7 @@ module serv_decode
    input wire [31:2] i_wb_rdt,
    input wire 	     i_wb_en,
    //To state
+   output wire 	     o_sh_right,
    output wire 	     o_bne_or_bge,
    output wire 	     o_cond_branch,
    output wire 	     o_e_op,
@@ -19,6 +20,7 @@ module serv_decode
    output wire 	     o_bufreg_rs1_en,
    output wire 	     o_bufreg_imm_en,
    output wire 	     o_bufreg_clr_lsb,
+   output wire 	     o_bufreg_sh_signed,
    //To ctrl
    output wire 	     o_ctrl_jal_or_jalr,
    output wire 	     o_ctrl_utype,
@@ -29,9 +31,7 @@ module serv_decode
    output wire [1:0] o_alu_bool_op,
    output wire 	     o_alu_cmp_eq,
    output wire 	     o_alu_cmp_sig,
-   output wire 	     o_alu_sh_signed,
-   output wire 	     o_alu_sh_right,
-   output wire [3:0] o_alu_rd_sel,
+   output wire [2:0] o_alu_rd_sel,
    //To mem IF
    output wire 	     o_mem_signed,
    output wire 	     o_mem_word,
@@ -106,6 +106,7 @@ module serv_decode
    //funct3
    //
 
+   assign o_sh_right   = funct3[2];
    assign o_bne_or_bge = funct3[0];
    
    //
@@ -131,36 +132,45 @@ module serv_decode
    assign o_e_op = opcode[4] & opcode[2] & !op21 & !(|funct3);
 
    //opcode & funct3 & imm30
-   //True for sub, sll*, b*, slt*
-   //False for add*, sr*
-   assign o_alu_sub = (!funct3[2] & (funct3[0] | (opcode[3] & imm30))) | funct3[1] | opcode[4];
 
+   assign o_bufreg_sh_signed = imm30;
+
+   /*
+    True for sub, b*, slt*
+    False for add*
+    op    opcode f3  i30
+    b*    11000  xxx x   t
+    addi  00100  000 x   f
+    slt*  0x100  01x x   t
+    add   01100  000 0   f
+    sub   01100  000 1   t
+    */
+   assign o_alu_sub = funct3[1] | funct3[0] | (opcode[3] & imm30) | opcode[4];
 
    /*
     Bits 26, 22, 21 and 20 are enough to uniquely identify the eight supported CSR regs
     mtvec, mscratch, mepc and mtval are stored externally (normally in the RF) and are
-    treated differently from mstatus, mie, mcause and mip which are stored in serv_csr.
+    treated differently from mstatus, mie and mcause which are stored in serv_csr.
     
-    The former get a 2-bit address (as found in serv_params.vh) while the latter get a
+    The former get a 2-bit address as seen below while the latter get a
     one-hot enable signal each.
     
-    Hex|2 222|Reg
-    adr|6 210|name
-    ---|-----|-------
-    300|0_000|mstatus
-    304|0_100|mie
-    305|0_101|mtvec
-    340|1_000|mscratch
-    341|1_001|mepc
-    342|1_010|mcause
-    343|1_011|mtval
-    344|1_100|mip
+    Hex|2 222|Reg     |csr
+    adr|6 210|name    |addr
+    ---|-----|--------|----
+    300|0_000|mstatus | xx
+    304|0_100|mie     | xx
+    305|0_101|mtvec   | 01
+    340|1_000|mscratch| 00
+    341|1_001|mepc    | 10
+    342|1_010|mcause  | xx
+    343|1_011|mtval   | 11
     
     */
 
    //true  for mtvec,mscratch,mepc and mtval
-   //false for mstatus, mie, mcause, mip
-   wire csr_valid = op20 | (op26 & !op22 & !op21);
+   //false for mstatus, mie, mcause
+   wire csr_valid = op20 | (op26 & !op21);
 
    assign o_rd_csr_en = csr_op;
 
@@ -172,17 +182,11 @@ module serv_decode
    assign o_csr_source = funct3[1:0];
    assign o_csr_d_sel = funct3[2];
    assign o_csr_imm_en = opcode[4] & opcode[2] & funct3[2];
-
-   assign o_csr_addr = (op26 & !op20) ? CSR_MSCRATCH :
-		       (op26 & !op21) ? CSR_MEPC :
-		       (op26)         ? CSR_MTVAL :
-		       CSR_MTVEC;
+   assign o_csr_addr = {op26 & op20, !op26 | op21};
 
    assign o_alu_cmp_eq = funct3[2:1] == 2'b00;
 
    assign o_alu_cmp_sig = ~((funct3[0] & funct3[1]) | (funct3[1] & funct3[2]));
-   assign o_alu_sh_signed = imm30;
-   assign o_alu_sh_right = funct3[2];
 
    assign o_mem_cmd  = opcode[3];
    assign o_mem_signed = ~funct3[2];
@@ -201,9 +205,8 @@ module serv_decode
    assign o_immdec_ctrl[3] = opcode[4];
 
    assign o_alu_rd_sel[0] = (funct3 == 3'b000); // Add/sub
-   assign o_alu_rd_sel[1] = (funct3[1:0] == 2'b01); //Shift
-   assign o_alu_rd_sel[2] = (funct3[2:1] == 2'b01); //SLT*
-   assign o_alu_rd_sel[3] = (funct3[2] & !(funct3[1:0] == 2'b01)); //Bool
+   assign o_alu_rd_sel[1] = (funct3[2:1] == 2'b01); //SLT*
+   assign o_alu_rd_sel[2] = funct3[2]; //Bool
    always @(posedge clk) begin
       if (i_wb_en) begin
          funct3        <= i_wb_rdt[14:12];
