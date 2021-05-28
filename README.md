@@ -2,6 +2,8 @@
 
 # SERV
 
+[![LibreCores](https://www.librecores.org/olofk/serv/badge.svg?style=flat)](https://www.librecores.org/olofk/serv) [![Join the chat at https://gitter.im/librecores/serv](https://badges.gitter.im/librecores/serv.svg)](https://gitter.im/librecores/serv?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 SERV is an award-winning bit-serial RISC-V core
 
 If you want to know more about SERV, what a bit-serial CPU is and what it's good for, I recommend starting out by watching the movies [introduction to SERV](https://diode.zone/videos/watch/0230a518-e207-4cf6-b5e2-69cc09411013) and the [presentation from the Zürich 2019 RISC-V workshop](https://www.youtube.com/watch?v=xjIxORBRaeQ)

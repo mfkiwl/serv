@@ -5,7 +5,7 @@ name : ::serv:1.0.2
 filesets:
   core:
     files:
-      - rtl/serv_params.vh : {is_include_file : true}
+      - "tool_verilator? (data/verilator_waiver.vlt)" : {file_type: vlt}
       - rtl/serv_bufreg.v
       - rtl/serv_alu.v
       - rtl/serv_csr.v
@@ -37,6 +37,8 @@ targets:
     tools:
       verilator:
         mode : lint-only
+        verilator_options:
+          - "-Wall"
     toplevel : serv_rf_top
 
 parameters:
