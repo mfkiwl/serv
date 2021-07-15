@@ -71,19 +71,21 @@ Other applications can be tested by compiling and converting to bin and then hex
 
 ## Run RISC-V compliance tests
 
+**Note:** The following instructions are valid for version 1.0 of the RISC-V compliance tests. The target-specific support for SERV has not yet been ported to newer versions.
+
 Build the verilator model (if not already done)
 
     fusesoc run --target=verilator_tb --build servant
 
 Download the tests repo
 
-    git clone https://github.com/riscv/riscv-compliance
+    git clone https://github.com/riscv/riscv-compliance --branch 1.0
 
 To run the RISC-V compliance tests, we need to supply the SERV-specific support files and point the test suite to where it can find a target to run (i.e. the previously built Verilator model)
 
 Run the compliance tests
 
-    cd riscv-compliance && make TARGETDIR=$SERV/riscv-target RISCV_TARGET=serv RISCV_DECICE=rv32i RISCV_ISA=rv32i TARGET_SIM=$SERV/build/servant_1.0.2/verilator_tb-verilator/Vservant_sim
+    cd riscv-compliance && make TARGETDIR=$SERV/riscv-target RISCV_TARGET=serv RISCV_DEVICE=rv32i RISCV_ISA=rv32i TARGET_SIM=$WORKSPACE/build/servant_1.0.2/verilator_tb-verilator/Vservant_sim
 
 The above will run all tests in the rv32i test suite. Since SERV also implement the `rv32Zicsr` and `rv32Zifencei` extensions, these can also be tested by choosing any of them instead of rv32i as the `RISCV_ISA` variable.
 
@@ -144,6 +146,12 @@ FPGA Pin D11 (Connector JP1, pin 38) is used for UART output with 57600 baud rat
 
     fusesoc run --target=de0_nano servant
 
+### DE10 Nano
+
+FPGA Pin Y15 (Connector JP7, pin 1) is used for UART output with 57600 baud rate. DE10 Nano needs an external 3.3V UART to connect to this pin
+
+    fusesoc run --target=de10_nano servant
+
 ### DECA development kit
 
 FPGA Pin W18 (Pin 3 P8 connector)  is used for UART output with 57600 baud rate. Key 0 is reset and Led 0 q output.
@@ -176,6 +184,13 @@ Pin 95 is used as the GPIO output which is connected to the board's green LED. D
 
     fusesoc run --target=icestick servant
     iceprog build/servant_1.0.2/icestick-icestorm/servant_1.0.2.bin
+
+### Nandland Go Board
+
+Pin 56 is used as the GPIO output which is connected to the board's LED1. Due to this board's limited Embedded BRAM, programs with a maximum of 7168 bytes can be loaded. The default program for this board is blinky.hex.
+
+    fusesoc run --target=go_board servant
+    iceprog build/servant_1.0.2/go_board-icestorm/servant_1.0.2.bin
 
 ## Other targets
 

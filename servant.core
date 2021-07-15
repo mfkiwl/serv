@@ -69,11 +69,23 @@ filesets:
       - servant/servive_clock_gen.v : {file_type : verilogSource}
       - servant/servive.v : {file_type : verilogSource}
 
+  de10_nano:
+    files:
+      - data/de10_nano.sdc : {file_type : SDC}
+      - data/de10_nano.tcl : {file_type : tclSource}
+      - servant/servive_clock_gen.v : {file_type : verilogSource}
+      - servant/servive.v : {file_type : verilogSource}
+
   tinyfpga_bx: {files: [data/tinyfpga_bx.pcf : {file_type : PCF}]}
   icebreaker : {files: [data/icebreaker.pcf  : {file_type : PCF}]}
   icesugar   : {files: [data/icesugar.pcf : {file_type : PCF}]}
   alhambra   : {files: [data/alhambra.pcf : {file_type : PCF}]}
-  icestick : {files: [data/icestick.pcf  : {file_type : PCF}]}
+  icestick   : {files: [data/icestick.pcf  : {file_type : PCF}]}
+
+  go_board:
+    files:
+      - data/go_board.pcf : {file_type : PCF}
+      - servant/service_go_board.v : {file_type : verilogSource}
 
   lx9_microboard:
     files:
@@ -180,6 +192,18 @@ targets:
         family : Cyclone IV E
         device : EP4CE22F17C6
     toplevel: servive
+
+  de10_nano:
+    default_tool: quartus
+    description: Terasic DE10 Nano Kit
+    filesets : [mem_files, soc, de10_nano]
+    parameters : [memfile, memsize=32768]
+    tools:
+      quartus:
+        family : Cyclone V
+        device : 5CSEBA6U23I7
+        board_device_index : 2
+    toplevel : servive
 
   icebreaker:
     default_tool : icestorm
@@ -371,6 +395,15 @@ targets:
         nextpnr_options : [--hx1k, --package, tq144, --freq, 32]
         pnr: next
     toplevel : service
+
+  go_board:
+    default_tool : icestorm
+    filesets : [mem_files, soc, go_board]
+    tools:
+      icestorm:
+        nextpnr_options : [--hx1k, --package, vq100, --freq, 20]
+        pnr: next
+    toplevel : service_go_board
 
 parameters:
   PLL:
