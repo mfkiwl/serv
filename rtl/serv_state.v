@@ -5,53 +5,58 @@ module serv_state
   (
    input wire 	     i_clk,
    input wire 	     i_rst,
+   //State
    input wire 	     i_new_irq,
-   input wire 	     i_dbus_ack,
-   output wire 	     o_ibus_cyc,
-   input wire 	     i_ibus_ack,
-   output wire 	     o_rf_rreq,
-   output wire 	     o_rf_wreq,
-   input wire 	     i_rf_ready,
-   output wire 	     o_rf_rd_en,
-   input wire 	     i_cond_branch,
-   input wire 	     i_bne_or_bge,
    input wire 	     i_alu_cmp,
-   input wire 	     i_branch_op,
-   input wire 	     i_mem_op,
-   input wire 	     i_shift_op,
-   input wire 	     i_sh_right,
-   input wire 	     i_slt_op,
-   input wire 	     i_e_op,
-   input wire 	     i_rd_op,
    output wire 	     o_init,
    output wire 	     o_cnt_en,
-   output wire 	     o_cnt0,
    output wire 	     o_cnt0to3,
    output wire 	     o_cnt12to31,
+   output wire 	     o_cnt0,
    output wire 	     o_cnt1,
    output wire 	     o_cnt2,
    output wire 	     o_cnt3,
    output wire 	     o_cnt7,
+   output reg 	     o_cnt_done,
+   output wire 	     o_bufreg_en,
    output wire 	     o_ctrl_pc_en,
    output reg 	     o_ctrl_jump,
    output wire 	     o_ctrl_trap,
    input wire 	     i_ctrl_misalign,
    input wire 	     i_sh_done,
    input wire 	     i_sh_done_r,
-   output wire 	     o_dbus_cyc,
    output wire [1:0] o_mem_bytecnt,
    input wire 	     i_mem_misalign,
-   output reg 	     o_cnt_done,
-   output wire 	     o_bufreg_en,
+   //Control
+   input wire 	     i_bne_or_bge,
+   input wire 	     i_cond_branch,
+   input wire 	     i_dbus_en,
+   input wire 	     i_two_stage_op,
+   input wire 	     i_branch_op,
+   input wire 	     i_shift_op,
+   input wire 	     i_sh_right,
+   input wire 	     i_slt_or_branch,
+   input wire 	     i_e_op,
+   input wire 	     i_rd_op,
    //MDU
-   input wire        i_mdu_op,
-   output wire       o_mdu_valid,
-   input wire        i_mdu_ready);
+   input wire 	     i_mdu_op,
+   output wire 	     o_mdu_valid,
+   //Extension
+   input wire 	     i_mdu_ready,
+   //External
+   output wire 	     o_dbus_cyc,
+   input wire 	     i_dbus_ack,
+   output wire 	     o_ibus_cyc,
+   input wire 	     i_ibus_ack,
+   //RF Interface
+   output wire 	     o_rf_rreq,
+   output wire 	     o_rf_wreq,
+   input wire 	     i_rf_ready,
+   output wire 	     o_rf_rd_en);
 
    reg 	stage_two_req;
    reg 	init_done;
    wire misalign_trap_sync;
-   wire two_stage_op;
 
    reg [4:2] o_cnt;
    reg [3:0] o_cnt_r;
@@ -80,36 +85,17 @@ module serv_state
    //been calculated.
    wire      take_branch = i_branch_op & (!i_cond_branch | (i_alu_cmp^i_bne_or_bge));
 
-generate
-   if (MDU) begin
-      //slt*, branch/jump, shift, load/store
-      assign two_stage_op = i_slt_op | i_mem_op | i_branch_op | i_shift_op | i_mdu_op;
+   //valid signal for mdu
+   assign o_mdu_valid = MDU & !o_cnt_en & init_done & i_mdu_op;
 
-      //valid signal for mdu
-      assign o_mdu_valid = !o_cnt_en & init_done & i_mdu_op;
+   //Prepare RF for writes when everything is ready to enter stage two
+   // and the first stage didn't cause a misalign exception
+   assign o_rf_wreq = !misalign_trap_sync & !o_cnt_en & init_done &
+	   	      ((i_shift_op & (i_sh_done | !i_sh_right)) |
+	   	       i_dbus_ack | (MDU & i_mdu_ready) |
+	   	       i_slt_or_branch);
 
-      //Prepare RF for writes when everything is ready to enter stage two
-      // and the first stage didn't cause a misalign exception
-      assign o_rf_wreq = !misalign_trap_sync &
-	   	      ((i_shift_op & (i_sh_done | !i_sh_right) & !o_cnt_en & init_done) |
-	   	       (i_mem_op & i_dbus_ack) | i_mdu_ready |
-	   	       (stage_two_req & (i_slt_op | i_branch_op)));
-   end else begin
-      //slt*, branch/jump, shift, load/store
-      assign two_stage_op = i_slt_op | i_mem_op | i_branch_op | i_shift_op;
-      
-      //valid signal for mdu turned-off
-      assign o_mdu_valid = 1'b0;
-
-      //Prepare RF for writes when everything is ready to enter stage two
-      // and the first stage didn't cause a misalign exception
-      assign o_rf_wreq = !misalign_trap_sync &
-	   	      ((i_shift_op & (i_sh_done | !i_sh_right) & !o_cnt_en & init_done) |
-	   	       (i_mem_op & i_dbus_ack) | (stage_two_req & (i_slt_op | i_branch_op)));
-   end
-endgenerate
-
-   assign o_dbus_cyc = !o_cnt_en & init_done & i_mem_op & !i_mem_misalign;
+   assign o_dbus_cyc = !o_cnt_en & init_done & i_dbus_en & !i_mem_misalign;
 
    //Prepare RF for reads when a new instruction is fetched
    // or when stage one caused an exception (rreq implies a write request too)
@@ -132,7 +118,7 @@ endgenerate
 
    assign o_ibus_cyc = ibus_cyc & !i_rst;
 
-   assign o_init = two_stage_op & !i_new_irq & !init_done;
+   assign o_init = i_two_stage_op & !i_new_irq & !init_done;
 
    always @(posedge i_clk) begin
       //ibus_cyc changes on three conditions.
@@ -201,7 +187,7 @@ endgenerate
 	 //trap_pending is only guaranteed to have correct value during the
 	 // last cycle of the init stage
 	 wire trap_pending = WITH_CSR & ((take_branch & i_ctrl_misalign) |
-					 (i_mem_op    & i_mem_misalign));
+					 (i_dbus_en   & i_mem_misalign));
 
 	 always @(posedge i_clk) begin
 	    if (o_cnt_done)
