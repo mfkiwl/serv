@@ -43,7 +43,7 @@ If [Verilator](https://www.veripool.org/wiki/verilator) is installed, we can use
 
 If everything worked, the output should look like
 
-    INFO: Preparing ::serv:1.1.0
+    INFO: Preparing ::serv:1.2.0
     INFO: Setting up project
 
     INFO: Building simulation model
@@ -76,23 +76,29 @@ Other applications can be tested by compiling and converting to bin and then hex
 
 ## Run RISC-V compliance tests
 
-**Note:** The following instructions are valid for version 1.0 of the RISC-V compliance tests. The target-specific support for SERV has not yet been ported to newer versions.
-
 Build the verilator model (if not already done)
 
-    fusesoc run --target=verilator_tb --build servant
+    fusesoc run --target=verilator_tb --build servant --memsize=8388608
+
+To build the verilator model with MDU (for M extension compliance tests):
+
+    fusesoc run --target=verilator_tb --flag=mdu --build servant --memsize=8388608
+
+To build the verilator model with C extension (for Compressed extension compliance tests):
+
+    fusesoc run --target=verilator_tb --build servant --memsize=8388608 --compressed=1
 
 Download the tests repo
 
-    git clone https://github.com/riscv/riscv-compliance --branch 1.0
+    git clone --branch 2.7.4 https://github.com/riscv-non-isa/riscv-arch-test.git
 
 To run the RISC-V compliance tests, we need to supply the SERV-specific support files and point the test suite to where it can find a target to run (i.e. the previously built Verilator model)
 
 Run the compliance tests
 
-    cd riscv-compliance && make TARGETDIR=$SERV/riscv-target RISCV_TARGET=serv RISCV_DEVICE=rv32i RISCV_ISA=rv32i TARGET_SIM=$WORKSPACE/build/servant_1.1.0/verilator_tb-verilator/Vservant_sim
+    cd riscv-arch-test && make TARGETDIR=$SERV/riscv-target RISCV_TARGET=serv RISCV_DEVICE=I TARGET_SIM=$WORKSPACE/build/servant_1.2.0/verilator_tb-verilator/Vservant_sim
 
-The above will run all tests in the rv32i test suite. Since SERV also implement the `rv32im`, `rv32Zicsr` and `rv32Zifencei` extensions, these can also be tested by choosing any of them instead of rv32i as the `RISCV_ISA` variable.
+The above will run all tests in the rv32i test suite. Since SERV also implement the `M`, `C`, `privilege` and `Zifencei` extensions, these can also be tested by choosing any of them instead of `I` as the `RISCV_DEVICE` variable.
 
 ## Run on hardware
 
@@ -123,6 +129,22 @@ Pin 9 is used for UART output with 57600 baud rate.
 
     fusesoc run --target=icebreaker servant
 
+### Nexys 2
+
+Pmod pin JA1 is conntected to UART tx with 57600 baud rate. A USB to TTL connector is used to display to hello world message on the serial monitor. 
+(To use blinky.hex change L15 to J14 (led[0]) in data/nexys_2.ucf).
+
+    fusesoc run --target=nexys_2_500 servant --uart_baudrate=57600 --firmware=$SERV/sw/zephyr_hello.hex
+
+### ICE-V Wireless
+
+Pin 9 is used for UART output with 57600 baud rate.
+
+    fusesoc run --target=icev_wireless servant
+
+    iceprog build/servant_1.2.0/icestick-icestorm/servant_1.2.0.bin
+
+
 ### iCESugar
 
 Pin 6 is used for UART output with 115200 baud rate. Thanks to the onboard
@@ -136,7 +158,7 @@ serial console will show up.
 Pin D1 is used for UART output with 115200 baud rate.
 
     fusesoc run --target=orangecrab_r0.2 servant
-    dfu-util -d 1209:5af0 -D build/servant_1.1.0/orangecrab_r0.2-trellis/servant_1.1.0.bit
+    dfu-util -d 1209:5af0 -D build/servant_1.2.0/orangecrab_r0.2-trellis/servant_1.2.0.bit
 
 ### Arty A7 35T
 
@@ -205,14 +227,20 @@ Pin 61 is used for UART output with 115200 baud rate. This pin is connected to a
 Pin 95 is used as the GPIO output which is connected to the board's green LED. Due to this board's limited Embedded BRAM, programs with a maximum of 7168 bytes can be loaded. The default program for this board is blinky.hex.
 
     fusesoc run --target=icestick servant
-    iceprog build/servant_1.1.0/icestick-icestorm/servant_1.1.0.bin
+    iceprog build/servant_1.2.0/icestick-icestorm/servant_1.2.0.bin
 
 ### Nandland Go Board
 
 Pin 56 is used as the GPIO output which is connected to the board's LED1. Due to this board's limited Embedded BRAM, programs with a maximum of 7168 bytes can be loaded. The default program for this board is blinky.hex.
 
     fusesoc run --target=go_board servant
-    iceprog build/servant_1.1.0/go_board-icestorm/servant_1.1.0.bin
+    iceprog build/servant_1.2.0/go_board-icestorm/servant_1.2.0.bin
+
+### Alinx ax309 (Spartan6 LX9)
+
+Pin D12 (the on-board RS232 TX pin) is used for UART output with 115200 baud rate and wired to Pin P4 (LED0).
+
+    fusesoc run --target=ax309 servant
 
 ## Other targets
 

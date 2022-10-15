@@ -10,6 +10,8 @@ module servant
    parameter reset_strategy = "MINI";
    parameter sim = 0;
    parameter with_csr = 1;
+   parameter [0:0] compress = 0;
+   parameter [0:0] align = 0;
 
    wire 	timer_irq;
 
@@ -127,7 +129,7 @@ module servant
       .o_wb_ack (wb_mem_ack));
 
    generate
-      if (with_csr) begin
+      if (|with_csr) begin
 	 servant_timer
 	   #(.RESET_STRATEGY (reset_strategy),
 	     .WIDTH (32))
@@ -159,7 +161,9 @@ module servant
   `ifdef MDU
        .MDU(1),
   `endif 
-       .WITH_CSR (with_csr))
+       .WITH_CSR (with_csr),
+       .COMPRESSED(compress),
+       .ALIGN(align))
    cpu
      (
       .clk      (wb_clk),

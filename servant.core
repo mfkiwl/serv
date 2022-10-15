@@ -1,6 +1,6 @@
 CAPI=2:
 
-name : ::servant:1.1.0
+name : ::servant:1.2.0
 
 filesets:
   service:
@@ -65,7 +65,7 @@ filesets:
       - data/chameleon96/CV_96.v : {file_type : verilogSource}
       - servant/servive_clock_gen.v : {file_type : verilogSource}
       - servant/servive.v : {file_type : verilogSource}    
-      
+
   deca:
     files:
       - data/deca.sdc : {file_type : SDC}
@@ -95,6 +95,7 @@ filesets:
 
   tinyfpga_bx: {files: [data/tinyfpga_bx.pcf : {file_type : PCF}]}
   icebreaker : {files: [data/icebreaker.pcf  : {file_type : PCF}]}
+  icev_wireless : {files: [data/icev_wireless.pcf  : {file_type : PCF}]}
   icesugar   : {files: [data/icesugar.pcf : {file_type : PCF}]}
   alhambra   : {files: [data/alhambra.pcf : {file_type : PCF}]}
   icestick   : {files: [data/icestick.pcf  : {file_type : PCF}]}
@@ -104,11 +105,24 @@ filesets:
       - data/go_board.pcf : {file_type : PCF}
       - servant/service_go_board.v : {file_type : verilogSource}
 
+  ax309:
+    files:
+      - servant/servant_ax309_clock_gen.v : {file_type : verilogSource}
+      - servant/servant_ax309.v : {file_type : verilogSource}
+      - data/ax309.ucf : {file_type : UCF}
+
   lx9_microboard:
     files:
       - servant/servant_lx9_clock_gen.v : {file_type : verilogSource}
       - servant/servant_lx9.v : {file_type : verilogSource}
       - data/lx9_microboard.ucf : {file_type : UCF}
+
+  nexys_2:
+    files:
+      - servant/servax_clock_gen.v : {file_type : verilogSource}
+      - servant/servax.v : {file_type : verilogSource}
+      - data/nexys_2.tcl : {file_type : tclSource}
+      - data/nexys_2.ucf : {file_type : UCF}
 
   nexys_a7:
     files:
@@ -198,9 +212,9 @@ targets:
       quartus:
         family : Cyclone V
         device : 5CSEBA6U19I7
-        board_device_index : 2        
+        board_device_index : 2
     toplevel: CV_96
-    
+
   deca:
     default_tool : quartus
     description: DECA development kit by Arrow / Terasic
@@ -245,6 +259,17 @@ targets:
         pnr: next
     toplevel : service
 
+  icev_wireless:
+    default_tool : icestorm
+    filesets : [mem_files, soc, service, icev_wireless]
+    generate: [icev_wireless_pll]
+    parameters : [memfile, memsize, PLL=ICE40_PAD]
+    tools:
+      icestorm:
+        nextpnr_options: [--up5k, --freq, 16]
+        pnr: next
+    toplevel : service
+
   icesugar:
     default_tool : icestorm
     description : iCE40UP5K Development Board by MuseLab
@@ -269,6 +294,19 @@ targets:
         package : csg324
         speed   : -2
     toplevel : servant_lx9
+
+  ax309:
+    default_tool : ise
+    description : XILINX Spartan-6 XC6SLX9 FPGA Development Board
+    filesets : [mem_files, soc, ax309]
+    parameters : [memfile, memsize]
+    tools:
+      ise:
+        family  : Spartan6
+        device  : xc6slx9
+        package : ftg256
+        speed   : -3
+    toplevel : servant_ax309
 
   tinyfpga_bx:
     default_tool : icestorm
@@ -308,6 +346,30 @@ targets:
     tools:
       vivado: {part : xc7a100tcsg324-1}
     toplevel : servix
+
+  nexys_2_500:
+    default_tool: ise
+    filesets : [mem_files, soc, nexys_2]
+    parameters : [memfile, memsize, compressed]
+    tools:
+      ise:
+        family  : Spartan3E
+        device  : xc3s500e
+        package : fg320
+        speed   : -4
+    toplevel : servax
+
+  nexys_2_1200:
+    default_tool: ise
+    filesets : [mem_files, soc, nexys_2]
+    parameters : [memfile, memsize, compressed]
+    tools:
+      ise:
+        family  : Spartan3E
+        device  : xc3s1600e
+        package : fg320
+        speed   : -4
+    toplevel : servax
 
   cmod_a7_35t:
     default_tool: vivado
@@ -411,6 +473,9 @@ targets:
       - uart_baudrate
       - vcd
       - vcd_start
+      - compressed
+      - align
+      - with_csr=1
     tools:
       verilator:
         verilator_options : [--trace]
@@ -454,7 +519,7 @@ parameters:
   RISCV_FORMAL:
     datatype  : bool
     paramtype : vlogdefine
-  
+
   MDU:
     datatype  : int
     description : Enables RISC-V standard M-extension
@@ -506,8 +571,28 @@ parameters:
     description : Delay start of VCD dumping until the specified time
     paramtype   : plusarg
 
+  compressed:
+    datatype    : int
+    description : Enable/Disable the Compressed extension
+    paramtype   : vlogparam
+
+  align:
+    datatype    : int
+    description : Enable/Disable the Misaligned access of instruction
+    paramtype   : vlogparam
+  
+  with_csr:
+    datatype    : int
+    description : Enable/Disable CSR support
+    paramtype   : vlogparam
+
 generate:
   icebreaker_pll:
+    generator: icepll
+    parameters:
+      freq_out : 16
+
+  icev_wireless_pll:
     generator: icepll
     parameters:
       freq_out : 16
