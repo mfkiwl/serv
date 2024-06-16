@@ -1,7 +1,7 @@
 `default_nettype none
 module servant_tb;
 
-   parameter memfile = "";
+   parameter memfile = "hello_uart.hex";
    parameter memsize = 8192;
    parameter with_csr = 1;
 
@@ -21,6 +21,11 @@ module servant_tb;
      #(.memfile  (memfile),
        .memsize  (memsize),
        .with_csr (with_csr))
-   dut(wb_clk, wb_rst, q);
+   dut
+     (.wb_clk (wb_clk),
+      .wb_rst (wb_rst),
+      .pc_adr (),
+      .pc_vld (),
+      .q      (q));
 
 endmodule
